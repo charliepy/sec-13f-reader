@@ -2,7 +2,6 @@
 import pandas as pd
 import pickle
 import collections
-from datetime import datetime
 
 # List of Investments
 CIK_LIST = [{
@@ -33,8 +32,6 @@ CIK_LIST = [{
     'name': 'AQR',
     'cik': '0001167557'
 }]
-
-CIK_LIST = [{'name': 'Buffett', 'cik': '0001067983'}]
 
 output_names = ['Current', 'Previous']
 
@@ -102,5 +99,3 @@ for item in CIK_LIST:
             aggregations['Amount'] = 'sum'
             data = df.groupby(group_cols).agg(aggregations)
             data.to_pickle(cache_path)
-
-        print(data)
