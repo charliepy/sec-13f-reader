@@ -1,6 +1,7 @@
 # Setup
 import pandas as pd
 import pickle
+import collections
 from datetime import datetime
 
 # List of Investments
@@ -65,27 +66,41 @@ for item in CIK_LIST:
         p2 = item['cik'] + '/' + acct_no
         path = p1 + p2
         print('Getting html {}, {}'.format(item['name'], path))
-        doc_data = pd.read_html(path)[0]
+        raw_data = pd.read_html(path)[0]
 
         # Filter for xml files that don't have primary in the name
-        xml_filter = doc_data['Name'].str.contains('xml')
-        primary_filter = doc_data['Name'].str.contains('primary')
-        data = doc_data[xml_filter & ~primary_filter].reset_index()
-        file_name = data.iloc[0]['Name']
+        xml_filter = raw_data['Name'].str.contains('xml')
+        primary_filter = raw_data['Name'].str.contains('primary')
+        doc_data = raw_data[xml_filter & ~primary_filter].reset_index()
+        file_name = doc_data.iloc[0]['Name']
         print(file_name)
 
         # Download and cache xml file
-        html_path = path + '/' + 'xslForm13F_X01/' + file_name
+        xml_path = path + '/' + 'xslForm13F_X01/' + file_name
         cache_path = 'api_data/' + '{}_{}.pkl'.format(item['name'], date)
+        # Check if cache exists
         try:
             f = open(cache_path, 'rb')
-            df = pickle.load(f)
+            data = pickle.load(f)
             print('Loaded {} from cache'.format(item['name']))
+        # If no cache save to cache
         except (OSError, IOError):
-            print('Downloading {}, {}'.format(item['name'], html_path))
-            df = pd.read_html(html_path)[3]
+            print('Downloading {}, {}'.format(item['name'], xml_path))
+            df = pd.read_html(xml_path)[3]
+            # Get specific columns, rename, and change dtype
             df = df.iloc[3:][[0, 3, 4]]
             df.columns = ['Name', 'Value', 'Amount']
             df['Value'] = df['Value'].astype(int)
             df['Amount'] = df['Amount'].astype(int)
-            df.to_pickle(cache_path)
+            df['Date'] = date
+
+            # Aggregate data
+            group_cols = ['Name']
+            aggregations = collections.OrderedDict()
+            aggregations['Date'] = lambda x: x.iloc[0]
+            aggregations['Value'] = 'sum'
+            aggregations['Amount'] = 'sum'
+            data = df.groupby(group_cols).agg(aggregations)
+            data.to_pickle(cache_path)
+
+        print(data)
